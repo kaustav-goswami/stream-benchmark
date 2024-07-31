@@ -43,6 +43,26 @@ uint64_t get_offset(char array_name, int index) {
 }
 
 int main(int argc, char* argv[]) {
+
+    // The shared version of stream needs to have an invoker ID. There has to
+    // be a master node that allocates the stream arrays and workers that
+    // run a portion of the kernel. A validation node then checks if the
+    // results were correctly computed.
+    if (argc != 3) {
+        printf("usage: # ./stream-shared <node_id> <total_workers>\n");
+        return -1;
+    }
+
+    int node_id = atoi(argv[1]);
+    int total_workers = atoi(argv[2]);
+
+    if (node_id > total_workers) {
+        printf("usage: # ./stream-shared <node_id> <total_workers>\n");
+        return -1;
+    }
+
+    // The start address will changed based on the worker id.
+
     // The size of the array is fixed. The program needs to be recompiled
     // when changing the array sizes. Make sure that the array of the stream
     // arrays fit into the hugetlbfs page size
@@ -89,124 +109,135 @@ int main(int argc, char* argv[]) {
     printf("Number of threads is %ld\n", num_threads);
     assert(num_threads != 0);
 
-    // Start allocating data into the mmap file.
+    // Start allocating data into the mmap file. Only the master node will
+    // allocate the arrays.
+    if (node_id == 0) {
+        printf("info: master allocating the stream arrays!\n");
 #pragma omp parallel for
-    for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('A', i))) = 1;
-        *((int *) (start_address + get_offset('B', i))) = 2;
-        *((int *) (start_address + get_offset('C', i))) = 0;
+        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+            *((int *) (start_address + get_offset('A', i))) = 1;
+            *((int *) (start_address + get_offset('B', i))) = 2;
+            *((int *) (start_address + get_offset('C', i))) = 0;
+        }
+        printf("info: master allocated the stream arrays!\n");
     }
+    else {
+        // These are the worker threads. the start address will be shifted by
+        // the portion that other workers have already worked on.
+        start_address = start_address + (uint64_t)(node_id - 1) *
+                        (uint64_t)(STREAM_SIZE)/(total_workers); 
 
-    // start keeping time
-    struct timespec start, stop;
-    double time[4];
+        // start keeping time
+        struct timespec start, stop;
+        double time[4];
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
-        perror("error! start time for copy kernel failed.");
-        return EXIT_FAILURE;
-    }
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+            perror("error! start time for copy kernel failed.");
+            return EXIT_FAILURE;
+        }
 #pragma omp parallel for
-    for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('C', i))) =
-                            *((int *) (start_address + get_offset('A', i)));
-    }
+        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+            *((int *) (start_address + get_offset('C', i))) =
+                                *((int *) (start_address + get_offset('A', i)));
+        }
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
-        perror("error! stop time for copy kernel failed.");
-        return EXIT_FAILURE;
-    }
-    time[0] = (stop.tv_sec - start.tv_sec)
-            + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
-    
-    ///////////////////////       End of copy kernel      /////////////////////
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+            perror("error! stop time for copy kernel failed.");
+            return EXIT_FAILURE;
+        }
+        time[0] = (stop.tv_sec - start.tv_sec)
+                + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
+        
+        ///////////////////////       End of copy kernel      /////////////////////
 
-    int scalar = 3;
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
-        perror("error! start time for scale kernel failed.");
-        return EXIT_FAILURE;
-    }
+        int scalar = 3;
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+            perror("error! start time for scale kernel failed.");
+            return EXIT_FAILURE;
+        }
 #pragma omp parallel for
-    for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('B', i))) = scalar *
-                            *((int *) (start_address + get_offset('C', i)));
-    }
+        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+            *((int *) (start_address + get_offset('B', i))) = scalar *
+                                *((int *) (start_address + get_offset('C', i)));
+        }
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
-        perror("error! stop time for scale kernel failed.");
-        return EXIT_FAILURE;
-    }
-    time[1] = (stop.tv_sec - start.tv_sec)
-            + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
-    
-    ///////////////////////       End of scale kernel      ////////////////////
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+            perror("error! stop time for scale kernel failed.");
+            return EXIT_FAILURE;
+        }
+        time[1] = (stop.tv_sec - start.tv_sec)
+                + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
+        
+        ///////////////////////       End of scale kernel      ////////////////////
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
-        perror("error! start time for add kernel failed.");
-        return EXIT_FAILURE;
-    }
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+            perror("error! start time for add kernel failed.");
+            return EXIT_FAILURE;
+        }
 #pragma omp parallel for
-    for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('C', i))) =
-                            *((int *) (start_address + get_offset('A', i))) +
-                            *((int *) (start_address + get_offset('B', i)));
-    }
+        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+            *((int *) (start_address + get_offset('C', i))) =
+                                *((int *) (start_address + get_offset('A', i))) +
+                                *((int *) (start_address + get_offset('B', i)));
+        }
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
-        perror("error! stop time for add kernel failed.");
-        return EXIT_FAILURE;
-    }
-    time[2] = (stop.tv_sec - start.tv_sec)
-            + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
-    
-    ///////////////////////       End of add kernel      ////////////////////
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+            perror("error! stop time for add kernel failed.");
+            return EXIT_FAILURE;
+        }
+        time[2] = (stop.tv_sec - start.tv_sec)
+                + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
+        
+        ///////////////////////       End of add kernel      ////////////////////
 
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
-        perror("error! start time for triad kernel failed.");
-        return EXIT_FAILURE;
-    }
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
+            perror("error! start time for triad kernel failed.");
+            return EXIT_FAILURE;
+        }
 #pragma omp parallel for
-    for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('A', i))) = scalar *
-                            *((int *) (start_address + get_offset('B', i))) +
-                   scalar * *((int *) (start_address + get_offset('C', i)));
+        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+            *((int *) (start_address + get_offset('A', i))) = scalar *
+                                *((int *) (start_address + get_offset('B', i))) +
+                    scalar * *((int *) (start_address + get_offset('C', i)));
+        }
+
+        // keep start time using start and stop time using stop.
+        if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+            perror("error! stop time for triad kernel failed.");
+            return EXIT_FAILURE;
+        }
+        time[3] = (stop.tv_sec - start.tv_sec)
+                + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
+        
+        ///////////////////////       End of triad kernel      ////////////////////
+
+        printf("warn! the array verifier is not added!\n");
+        double data_size_in_bytes = (STREAM_SIZE) * sizeof(int);
+        double data_size_in_gib = data_size_in_bytes / 1024.0 / 1024.0 / 1024.0;
+
+        double copy_bw = 2.0 * data_size_in_gib / time[0];
+        double scale_bw = 2.0 * data_size_in_gib / time[1];
+        double add_bw = 3.0 * data_size_in_gib / time[2];
+        double triad_bw = 3.0 * data_size_in_gib / time[3];
+
+        printf(" ================================================\n");
+        printf(" array elements     : %d\n", STREAM_SIZE);
+        printf(" array SIZE         : %f GiB\n", data_size_in_gib);
+        printf("\n");
+        printf(" copy bandwidth     : %f GiB/s\n", copy_bw);
+        printf(" scale bandwidth    : %f GiB/s\n", scale_bw);
+        printf(" add bandwidth      : %f GiB/s\n", add_bw);
+        printf(" triad bandwidth    : %f GiB/s\n", triad_bw);
+        printf(" ================================================\n");
+
+        // close a file descriptor for the huge page
     }
-
-    // keep start time using start and stop time using stop.
-    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
-        perror("error! stop time for triad kernel failed.");
-        return EXIT_FAILURE;
-    }
-    time[3] = (stop.tv_sec - start.tv_sec)
-            + (double)(stop.tv_nsec - start.tv_nsec) / (double)BILLION;
-    
-    ///////////////////////       End of triad kernel      ////////////////////
-
-    printf("warn! the array verifier is not added!\n");
-    double data_size_in_bytes = (STREAM_SIZE) * sizeof(int);
-    double data_size_in_gib = data_size_in_bytes / 1024.0 / 1024.0 / 1024.0;
-
-    double copy_bw = 2.0 * data_size_in_gib / time[0];
-    double scale_bw = 2.0 * data_size_in_gib / time[1];
-    double add_bw = 3.0 * data_size_in_gib / time[2];
-    double triad_bw = 3.0 * data_size_in_gib / time[3];
-
-    printf(" ================================================\n");
-    printf(" array elements     : %d\n", STREAM_SIZE);
-    printf(" array SIZE         : %f GiB\n", data_size_in_gib);
-    printf("\n");
-    printf(" copy bandwidth     : %f GiB/s\n", copy_bw);
-    printf(" scale bandwidth    : %f GiB/s\n", scale_bw);
-    printf(" add bandwidth      : %f GiB/s\n", add_bw);
-    printf(" triad bandwidth    : %f GiB/s\n", triad_bw);
-    printf(" ================================================\n");
-
-    // close a file descriptor for the huge page
     return 0;
 }
