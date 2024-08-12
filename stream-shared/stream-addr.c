@@ -147,11 +147,25 @@ int main(int argc, char* argv[]) {
                 break;
         }
         // this worker now can start working
+        printf("info: worker %d will start working!\n", node_id);
 
         // These are the worker threads. the start address will be shifted by
         // the portion that other workers have already worked on.
-        start_address = start_address + (uint64_t)(node_id - 1) *
-                        (uint64_t)(STREAM_SIZE)/(total_workers); 
+        // int worker_portion = (STREAM_SIZE)/total_workers;
+        // printf("info: this worker will work on %d\n", worker_portion);
+        
+        // volatile char* worker_address = start_address + (node_id - 1) * worker_portion;
+        // printf("Worker start address is %#lx\n", (long) worker_address);
+
+        // now find the start index for this worker
+        int worker_start_index = (node_id - 1) * 
+                                    (STREAM_SIZE)/total_workers/sizeof(int);
+        int worker_work_index = worker_start_index + 
+                                    (STREAM_SIZE)/total_workers/sizeof(int);
+        printf("this worker %d will start working from %d to %d indices\n",
+                            node_id, worker_start_index, worker_work_index);
+
+        // ((uint64_t)(STREAM_SIZE))/(total_workers); 
 
         // start keeping time
         struct timespec start, stop;
@@ -163,7 +177,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 #pragma omp parallel for
-        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+        for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('C', i))) =
                                 *((int *) (start_address + get_offset('A', i)));
         }
@@ -185,7 +199,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 #pragma omp parallel for
-        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+        for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('B', i))) = scalar *
                                 *((int *) (start_address + get_offset('C', i)));
         }
@@ -206,7 +220,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 #pragma omp parallel for
-        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+        for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('C', i))) =
                                 *((int *) (start_address + get_offset('A', i))) +
                                 *((int *) (start_address + get_offset('B', i)));
@@ -228,7 +242,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 #pragma omp parallel for
-        for (int i = 0 ; i < STREAM_SIZE ; i++) {
+        for (int i = worker_start_index ; i < worker_work_index ; i++) {{
             *((int *) (start_address + get_offset('A', i))) = scalar *
                                 *((int *) (start_address + get_offset('B', i))) +
                     scalar * *((int *) (start_address + get_offset('C', i)));
