@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 #pragma omp parallel for
-        for (int i = worker_start_index ; i < worker_work_index ; i++) {{
+        for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('A', i))) = scalar *
                                 *((int *) (start_address + get_offset('B', i))) +
                     scalar * *((int *) (start_address + get_offset('C', i)));
