@@ -20,7 +20,7 @@
 
 // Each of the stream array will be allocated this much amount of space. The
 // mmap call is just one block of memory os size 3 * STREAM_SIZE
-#define STREAM_SIZE 1 << 26
+#define STREAM_SIZE 1 << 20
 #define BILLION 1000000000L
 
 // we need a function to get the offset of within the mmap block to get the
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 
     int uiofd = open(uio_mountpoint, O_RDWR | O_SYNC);
     if (uiofd < 0) {
-        printf("Error mounting! Make sure that the mount point %s is valid",
+        printf("Error mounting! Make sure that the mount point %s is valid\n",
                 uio_mountpoint);
         return EXIT_FAILURE;
     }
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 
     // Map should not fail if the device is setup correctly.
     if (ptr == MAP_FAILED) {
-        perror("Failed to map a 1 GiB page!");
+        perror("Failed to map a 1 GiB page!\n");
         return -1;
     }
 
@@ -120,8 +120,34 @@ int main(int argc, char* argv[]) {
             *((int *) (start_address + get_offset('C', i))) = 0;
         }
         printf("info: master allocated the stream arrays!\n");
+        // Set the last integer to 1 so that the workers can start working on
+        // the data.
+        *((int *) (start_address + (1 << 30) - sizeof(int))) = 1;
+#ifdef GEM5_ANNOTATION
+        system("m5 exit;");
+#endif
+        printf("arrays allocated and synchronization variable is set!\n");
+        // The master will be spinning on the synch variable until all the
+        // workers are done working on the data.
+        while (1) {
+            if (*((int *) (start_address + (1 << 30) - sizeof(int))) == 
+                                                            total_workers + 1)
+                break;
+        }
+        printf("workers are done!\n");
     }
     else {
+        // take the checkpoint here
+#ifdef GEM5_ANNOTATION
+        system("m5 exit;");
+#endif
+        // make sure that synchronization variable is set
+        while (1) {
+            if (*((int *) (start_address + (1 << 30) - sizeof(int))) == 1)
+                break;
+        }
+        // this worker now can start working
+
         // These are the worker threads. the start address will be shifted by
         // the portion that other workers have already worked on.
         start_address = start_address + (uint64_t)(node_id - 1) *
@@ -238,6 +264,9 @@ int main(int argc, char* argv[]) {
         printf(" ================================================\n");
 
         // close a file descriptor for the huge page
+        // change the synch variable so that the master can end. this has to
+        // be an atomic operation ideally.
+        (*((int *) (start_address + (1 << 30) - sizeof(int))))++;
     }
     return 0;
 }
