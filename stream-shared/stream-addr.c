@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
 
     // print the process id
     printf("Running stream with PID %d\n", getpid());
-    system("m5 --addr=0x10010000 exit;");
+    // system("m5 --addr=0x10010000 exit;");
 
     // we'll use a uio device to run stream.
     char* uio_mountpoint = "/dev/uio0";
