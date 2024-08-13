@@ -140,6 +140,7 @@ int main(int argc, char* argv[]) {
         // take the checkpoint here
 
         system("m5 --addr=0x10010000 exit;");
+        printf("info: worker %d waiting for master\n", node_id);
 
         // make sure that synchronization variable is set
         while (1) {
@@ -159,9 +160,9 @@ int main(int argc, char* argv[]) {
 
         // now find the start index for this worker
         int worker_start_index = (node_id - 1) * 
-                                    (STREAM_SIZE)/total_workers/sizeof(int);
+                                    (STREAM_SIZE)/total_workers;
         int worker_work_index = worker_start_index + 
-                                    (STREAM_SIZE)/total_workers/sizeof(int);
+                                    (STREAM_SIZE)/total_workers;
         printf("this worker %d will start working from %d to %d indices\n",
                             node_id, worker_start_index, worker_work_index);
 
