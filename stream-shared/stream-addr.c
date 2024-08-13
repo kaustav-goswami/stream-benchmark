@@ -73,6 +73,7 @@ int main(int argc, char* argv[]) {
 
     // print the process id
     printf("Running stream with PID %d\n", getpid());
+    system("m5 --addr=0x10010000 exit;");
 
     // we'll use a uio device to run stream.
     char* uio_mountpoint = "/dev/uio0";
@@ -124,8 +125,6 @@ int main(int argc, char* argv[]) {
         // the data.
         *((int *) (start_address + (1 << 30) - sizeof(int))) = 1;
 
-        system("m5 --addr=0x10010000 exit;");
-
         printf("arrays allocated and synchronization variable is set!\n");
         // The master will be spinning on the synch variable until all the
         // workers are done working on the data.
@@ -139,7 +138,7 @@ int main(int argc, char* argv[]) {
     else {
         // take the checkpoint here
 
-        system("m5 --addr=0x10010000 exit;");
+        // system("m5 --addr=0x10010000 exit;");
         printf("info: worker %d waiting for master\n", node_id);
 
         // make sure that synchronization variable is set
