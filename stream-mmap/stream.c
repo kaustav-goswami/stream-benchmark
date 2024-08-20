@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     }
 #pragma omp parallel for
     for (int i = 0 ; i < STREAM_SIZE ; i++) {
-        *((int *) (start_address + get_offset('A', i))) = scalar *
+        *((int *) (start_address + get_offset('A', i))) =
                             *((int *) (start_address + get_offset('B', i))) +
                    scalar * *((int *) (start_address + get_offset('C', i)));
     }
@@ -181,7 +181,30 @@ int main(int argc, char* argv[]) {
     
     ///////////////////////       End of triad kernel      ////////////////////
 
-    printf("warn! the array verifier is not added!\n");
+    // Add a verifier
+    //
+    // recreate the initialization
+    int exp_a = 1, exp_b = 2, exp_c = 0, exp_scalar = 3;
+    float avg_a, avg_b, avg_c;
+	for (int k = 0; k < 1; k++) {
+        exp_c = exp_a;
+        exp_b = scalar * exp_c;
+        exp_c = exp_a + exp_b;
+        exp_a = exp_b + scalar * exp_c;
+    }
+    int sum_a = 0, sum_b = 0, sum_c = 0;
+    for (int i = 0 ; i < (STREAM_SIZE) ; i++) {
+        sum_a += abs(*((int *) (start_address + get_offset('A', i))) - exp_a);
+        sum_b += abs(*((int *) (start_address + get_offset('B', i))) - exp_b);
+        sum_c += abs(*((int *) (start_address + get_offset('C', i))) - exp_c);
+    }
+    avg_a = (float)sum_a / (STREAM_SIZE);
+    avg_b = (float)sum_b / (STREAM_SIZE);
+    avg_c = (float)sum_c / (STREAM_SIZE);
+
+    // printf("warn! the array verifier is not added!\n");
+    ///////////////////////       End of the verifier      ////////////////////
+    
     double data_size_in_bytes = (STREAM_SIZE) * sizeof(int);
     double data_size_in_gib = data_size_in_bytes / 1024.0 / 1024.0 / 1024.0;
 
@@ -198,6 +221,9 @@ int main(int argc, char* argv[]) {
     printf(" scale bandwidth    : %f GiB/s\n", scale_bw);
     printf(" add bandwidth      : %f GiB/s\n", add_bw);
     printf(" triad bandwidth    : %f GiB/s\n", triad_bw);
+    printf(" ================================================\n");
+    printf(" max error A %d, B %d, C %d\n", sum_a, sum_b, sum_c);
+    printf(" avg error A %f, B %f, C %f\n", avg_a, avg_b, avg_c);
     printf(" ================================================\n");
 
     // close a file descriptor for the huge page

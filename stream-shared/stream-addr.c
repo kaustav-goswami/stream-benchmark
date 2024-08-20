@@ -73,7 +73,6 @@ int main(int argc, char* argv[]) {
 
     // print the process id
     printf("Running stream with PID %d\n", getpid());
-    // system("m5 --addr=0x10010000 exit;");
 
     // we'll use a uio device to run stream.
     char* uio_mountpoint = "/dev/uio0";
@@ -121,6 +120,7 @@ int main(int argc, char* argv[]) {
             *((int *) (start_address + get_offset('C', i))) = 0;
         }
         printf("info: master allocated the stream arrays!\n");
+        system("m5 --addr=0x10010000 exit;");
         // Set the last integer to 1 so that the workers can start working on
         // the data.
         *((int *) (start_address + (1 << 30) - sizeof(int))) = 1;
@@ -134,11 +134,41 @@ int main(int argc, char* argv[]) {
                 break;
         }
         printf("workers are done!\n");
+        // calculate errors here
+
+
+        // Add a verifier
+        //
+        // recreate the initialization
+        int exp_a = 1, exp_b = 2, exp_c = 0, exp_scalar = 3, scalar = 3;
+        float avg_a, avg_b, avg_c;
+        for (int k = 0; k < 1; k++) {
+            exp_c = exp_a;
+            exp_b = scalar * exp_c;
+            exp_c = exp_a + exp_b;
+            exp_a = exp_b + scalar * exp_c;
+        }
+        int sum_a = 0, sum_b = 0, sum_c = 0;
+        for (int i = 0 ; i < (STREAM_SIZE) ; i++) {
+            sum_a += abs(*((int *) (start_address + get_offset('A', i))) - exp_a);
+            sum_b += abs(*((int *) (start_address + get_offset('B', i))) - exp_b);
+            sum_c += abs(*((int *) (start_address + get_offset('C', i))) - exp_c);
+        }
+        avg_a = (float)sum_a / (STREAM_SIZE);
+        avg_b = (float)sum_b / (STREAM_SIZE);
+        avg_c = (float)sum_c / (STREAM_SIZE);
+
+        // printf("warn! the array verifier is not added!\n");
+        ///////////////////////       End of the verifier      ////////////////////
+        printf(" ================================================\n");
+        printf(" max error A %d, B %d, C %d\n", sum_a, sum_b, sum_c);
+        printf(" avg error A %f, B %f, C %f\n", avg_a, avg_b, avg_c);
+        printf(" ================================================\n");
     }
     else {
         // take the checkpoint here
 
-        // system("m5 --addr=0x10010000 exit;");
+        system("m5 --addr=0x10010000 exit;");
         printf("info: worker %d waiting for master\n", node_id);
 
         // make sure that synchronization variable is set
@@ -258,7 +288,6 @@ int main(int argc, char* argv[]) {
         
         ///////////////////////       End of triad kernel      ////////////////////
 
-        printf("warn! the array verifier is not added!\n");
         double data_size_in_bytes = (STREAM_SIZE) * sizeof(int);
         double data_size_in_gib = data_size_in_bytes / 1024.0 / 1024.0 / 1024.0;
 
