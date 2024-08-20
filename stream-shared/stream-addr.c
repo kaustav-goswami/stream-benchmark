@@ -188,7 +188,7 @@ int main(int argc, char* argv[]) {
         // printf("Worker start address is %#lx\n", (long) worker_address);
 
         // now find the start index for this worker
-        int worker_start_index = (node_id - 1) * 
+        int worker_start_index = (node_id) * 
                                     (STREAM_SIZE)/total_workers;
         int worker_work_index = worker_start_index + 
                                     (STREAM_SIZE)/total_workers;
