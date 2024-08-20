@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
 
     // Start allocating data into the mmap file. Only the master node will
     // allocate the arrays.
-    if (node_id == 0) {
+    if (node_id == 1) {
         printf("info: master allocating the stream arrays!\n");
 #pragma omp parallel for
         for (int i = 0 ; i < STREAM_SIZE ; i++) {
@@ -119,8 +119,8 @@ int main(int argc, char* argv[]) {
             *((int *) (start_address + get_offset('B', i))) = 2;
             *((int *) (start_address + get_offset('C', i))) = 0;
         }
-        printf("info: master allocated the stream arrays!\n");
         system("m5 --addr=0x10010000 exit;");
+        printf("info: master allocated the stream arrays!\n");
         // Set the last integer to 1 so that the workers can start working on
         // the data.
         *((int *) (start_address + (1 << 30) - sizeof(int))) = 1;
