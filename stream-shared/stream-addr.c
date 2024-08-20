@@ -281,7 +281,7 @@ int main(int argc, char* argv[]) {
         system("m5 --addr=0x10010000 resetstats;");
 #pragma omp parallel for
         for (int i = worker_start_index ; i < worker_work_index ; i++) {
-            *((int *) (start_address + get_offset('A', i))) = scalar *
+            *((int *) (start_address + get_offset('A', i))) =
                                 *((int *) (start_address + get_offset('B', i))) +
                     scalar * *((int *) (start_address + get_offset('C', i)));
         }
