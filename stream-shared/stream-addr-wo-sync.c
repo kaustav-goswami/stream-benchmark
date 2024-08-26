@@ -20,7 +20,7 @@
 
 // Each of the stream array will be allocated this much amount of space. The
 // mmap call is just one block of memory os size 3 * STREAM_SIZE
-#define STREAM_SIZE 1 << 10
+#define STREAM_SIZE 1 << 24
 #define BILLION 1000000000L
 
 // we need a function to get the offset of within the mmap block to get the
