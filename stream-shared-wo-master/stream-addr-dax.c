@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     printf("Running stream with PID %d\n", getpid());
 
     // we'll use a uio device to run stream.
-    char* uio_mountpoint = "/dev/dax";
+    char* uio_mountpoint = "/dev/dax0.0";
 
     int uiofd = open(uio_mountpoint, O_RDWR | O_SYNC);
     if (uiofd < 0) {
