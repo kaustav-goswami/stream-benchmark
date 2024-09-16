@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
         *((int *) (start_address + get_offset('C', i))) = 0;
     }
 
-    system("m5 --addr=0x10010000 exit;");
+    system("m5 exit;");
     
     // After the allocation is complete, we can start the ROI
     printf("this worker %d will start working from %d to %d indices\n",
@@ -166,13 +166,13 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     // skipping the time
-    system("m5 --addr=0x10010000 resetstats;");
+    system("m5 resetstats;");
 #pragma omp parallel for
     for (int i = worker_start_index ; i < worker_work_index ; i++) {
         *((int *) (start_address + get_offset('C', i))) =
                             *((int *) (start_address + get_offset('A', i)));
     }
-    system("m5 --addr=0x10010000 dumpstats;");
+    system("m5 dumpstats;");
 
     // keep start time using start and stop time using stop.
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -190,13 +190,13 @@ int main(int argc, char* argv[]) {
         perror("error! start time for scale kernel failed.");
         return EXIT_FAILURE;
     }
-    system("m5 --addr=0x10010000 resetstats;");
+    system("m5 resetstats;");
 #pragma omp parallel for
     for (int i = worker_start_index ; i < worker_work_index ; i++) {
         *((int *) (start_address + get_offset('B', i))) = scalar *
                             *((int *) (start_address + get_offset('C', i)));
     }
-    system("m5 --addr=0x10010000 dumpstats;");
+    system("m5 dumpstats;");
 
     // keep start time using start and stop time using stop.
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -213,14 +213,14 @@ int main(int argc, char* argv[]) {
         perror("error! start time for add kernel failed.");
         return EXIT_FAILURE;
     }
-    system("m5 --addr=0x10010000 resetstats;");
+    system("m5 resetstats;");
 #pragma omp parallel for
     for (int i = worker_start_index ; i < worker_work_index ; i++) {
         *((int *) (start_address + get_offset('C', i))) =
                             *((int *) (start_address + get_offset('A', i))) +
                             *((int *) (start_address + get_offset('B', i)));
     }
-    system("m5 --addr=0x10010000 dumpstats;");
+    system("m5 dumpstats;");
 
     // keep start time using start and stop time using stop.
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -237,14 +237,14 @@ int main(int argc, char* argv[]) {
         perror("error! start time for triad kernel failed.");
         return EXIT_FAILURE;
     }
-    system("m5 --addr=0x10010000 resetstats;");
+    system("m5 resetstats;");
 #pragma omp parallel for
     for (int i = worker_start_index ; i < worker_work_index ; i++) {
         *((int *) (start_address + get_offset('A', i))) =
                             *((int *) (start_address + get_offset('B', i))) +
                 scalar * *((int *) (start_address + get_offset('C', i)));
     }
-    system("m5 --addr=0x10010000 dumpstats;");
+    system("m5 dumpstats;");
 
     // keep start time using start and stop time using stop.
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
