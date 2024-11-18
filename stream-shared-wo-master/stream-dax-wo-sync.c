@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     // we'll use a uio device to run stream.
     char* uio_mountpoint = "/dev/dax0.0";
 
-    int uiofd = open(uio_mountpoint, O_RDWR | O_SYNC);
+    int uiofd = open(uio_mountpoint, O_RDWR);
     if (uiofd < 0) {
         printf("Error mounting! Make sure that the mount point %s is valid\n",
                 uio_mountpoint);

@@ -10,6 +10,9 @@ This requires a kernel compiled with `CONFIG_UIO` enabled.
 On recent kernels, .config would disable it.
 On older kernels, .config will set it to `m`.
 
+For the DAX version, make sure all kconfig params for DAX, SPARSE\_MEM, PMEM
+etc. are set.
+
 ## Instructions
 This version of stream requires n + 1 systems, where n is the number of independent systems working on the same data.
 Instance id 0 initializes the stream arrays on a mmapped region in the shared memory space.
@@ -19,3 +22,10 @@ There are N + 1 systems where N systems work on the shared memory arrays and the
 The programmer needs to make sure that there are no race conditions and the data is coherent.
 
 This version of the program is expected to be slow as it is spinning on a variable for synchronization.
+
+## Versions
+
+* stream.c: Uses UIO and m5 without addresses
+* stream-addr.c Uses UIO and m5 with ARM addresses
+* stream-addr-wo-sync.c: Removes O_SYNC flag from open
+* stream-dax-wo-sync.c Uses DAX and m5 without addresses and no O_SYNC.

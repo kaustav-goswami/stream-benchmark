@@ -74,8 +74,8 @@ int main(int argc, char* argv[]) {
     // print the process id
     printf("Running stream with PID %d\n", getpid());
 
-    // we'll use a uio device to run stream.
-    char* uio_mountpoint = "/dev/uio0";
+    // we'll use a DAX device to run stream.
+    char* uio_mountpoint = "/dev/dax0.0";
 
     int uiofd = open(uio_mountpoint, O_RDWR);
     if (uiofd < 0) {
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
             *((int *) (start_address + get_offset('B', i))) = 2;
             *((int *) (start_address + get_offset('C', i))) = 0;
         }
-        system("m5 --addr=0x10010000 exit;");
+        system("m5 exit;");
         printf("info: master allocated the stream arrays!\n");
         // Set the last integer to 1 so that the workers can start working on
         // the data.
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
     else {
         // take the checkpoint here
 
-        system("m5 --addr=0x10010000 exit;");
+        system("m5 exit;");
         printf("info: worker %d waiting for master\n", node_id);
 
         // make sure that synchronization variable is set
@@ -207,13 +207,13 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
         // skipping the time
-        system("m5 --addr=0x10010000 resetstats;");
+        system("m5 resetstats;");
 #pragma omp parallel for
         for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('C', i))) =
                                 *((int *) (start_address + get_offset('A', i)));
         }
-        system("m5 --addr=0x10010000 dumpstats;");
+        system("m5 dumpstats;");
 
         // keep start time using start and stop time using stop.
         if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -231,13 +231,13 @@ int main(int argc, char* argv[]) {
             perror("error! start time for scale kernel failed.");
             return EXIT_FAILURE;
         }
-        system("m5 --addr=0x10010000 resetstats;");
+        system("m5 resetstats;");
 #pragma omp parallel for
         for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('B', i))) = scalar *
                                 *((int *) (start_address + get_offset('C', i)));
         }
-        system("m5 --addr=0x10010000 dumpstats;");
+        system("m5 dumpstats;");
 
         // keep start time using start and stop time using stop.
         if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -254,14 +254,14 @@ int main(int argc, char* argv[]) {
             perror("error! start time for add kernel failed.");
             return EXIT_FAILURE;
         }
-        system("m5 --addr=0x10010000 resetstats;");
+        system("m5 resetstats;");
 #pragma omp parallel for
         for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('C', i))) =
                                 *((int *) (start_address + get_offset('A', i))) +
                                 *((int *) (start_address + get_offset('B', i)));
         }
-        system("m5 --addr=0x10010000 dumpstats;");
+        system("m5 dumpstats;");
 
         // keep start time using start and stop time using stop.
         if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -278,14 +278,14 @@ int main(int argc, char* argv[]) {
             perror("error! start time for triad kernel failed.");
             return EXIT_FAILURE;
         }
-        system("m5 --addr=0x10010000 resetstats;");
+        system("m5 resetstats;");
 #pragma omp parallel for
         for (int i = worker_start_index ; i < worker_work_index ; i++) {
             *((int *) (start_address + get_offset('A', i))) =
                                 *((int *) (start_address + get_offset('B', i))) +
                     scalar * *((int *) (start_address + get_offset('C', i)));
         }
-        system("m5 --addr=0x10010000 dumpstats;");
+        system("m5 dumpstats;");
 
         // keep start time using start and stop time using stop.
         if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
