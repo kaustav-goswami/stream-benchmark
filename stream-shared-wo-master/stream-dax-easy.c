@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     // then see stream-dax-wo-sync.c on how this part is done.
     int num_threads = omp_get_num_threads(); 
 
-    printf("Number of threads is %ld\n", num_threads);
+    printf("Number of threads is %d\n", num_threads);
 
     // double check to make sure that the number of threads is not 0. It'll
     // crash anyway.
