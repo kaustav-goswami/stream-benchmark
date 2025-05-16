@@ -17,7 +17,7 @@
 #include <assert.h>
 #include <time.h>
 
-#include <omp.h>
+// #include <omp.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -40,7 +40,6 @@ int main(int argc, char* argv[]) {
     // results were correctly computed.
 
     int node_id = 0;
-    int total_workers = atoi(argv[2]);
     int verify_array = 1;
 
     if (verify_array < 0 || verify_array > 1) {
@@ -53,12 +52,12 @@ int main(int argc, char* argv[]) {
     // print the process id
     printf("Running stream with PID %d\n", getpid());
     // there are three pointers
-    double *ptr_a = (double *) mmap (
-            NULL, STREAM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    double *ptr_b = (double *) mmap (
-            NULL, STREAM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    double *ptr_c = (double *) mmap (
-            NULL, STREAM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    int *ptr_a = (int *) mmap (
+            NULL, 0x100000000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    int *ptr_b = (int *) mmap (
+            NULL, 0x100000000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    int *ptr_c = (int *) mmap (
+            NULL, 0x100000000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     // Map should not fail if the device is setup correctly.
     if (ptr_a == MAP_FAILED || ptr_b == MAP_FAILED || ptr_c == MAP_FAILED) {
@@ -72,7 +71,18 @@ int main(int argc, char* argv[]) {
     // for openmp, if the compiler supports openmp, then then this function
     // call should work. If not (seen in RISCV compilers (old most likely)),
     // then see stream-dax-wo-sync.c on how this part is done.
-    int num_threads = omp_get_num_threads(); 
+//    int num_threads = omp_get_num_threads(); 
+
+    // get openmp information here
+    size_t num_threads = 0;
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp atomic
+    num_threads++;
+#endif
+    printf("Number of threads is %ld\n", num_threads);
+    assert(num_threads != 0);
+
 
     printf("Number of threads is %d\n", num_threads);
 
@@ -93,13 +103,13 @@ int main(int argc, char* argv[]) {
     
     // now find the start index and end index for this worker
     int worker_start_index = 0;
-    int worker_end_index = (STREAM_SIZE) / sizeof(double);
+    int worker_end_index = (STREAM_SIZE);
     
     // allocate pointers for this version of the code. These pointers start at
     // 0, STREAM_SIZE and 2 x STREAM_SIZE.
-    double *A = &ptr_a[0];
-    double *B = &ptr_b[0];
-    double *C = &ptr_c[0];
+    int  *A = &ptr_a[0];
+    int  *B = &ptr_b[0];
+    int  *C = &ptr_c[0];
     // allocate the memory here.
 #pragma omp parallel for
     for (int i = worker_start_index ; i < worker_end_index ; i++) {
@@ -199,7 +209,7 @@ int main(int argc, char* argv[]) {
     
     ///////////////////////       End of triad kernel      ////////////////////
 
-    double data_size_in_bytes = (STREAM_SIZE) * sizeof(double);
+    double data_size_in_bytes = (STREAM_SIZE) * sizeof(int);
     double data_size_in_gib = data_size_in_bytes / 1024.0 / 1024.0 / 1024.0;
 
     double copy_bw = 2.0 * data_size_in_gib / time[0];
